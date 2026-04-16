@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Todo List — Projet Cruise K8s</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f2b46;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 540px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      color: #0f2b46;
+      margin-bottom: 6px;
+      font-size: 1.8rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #028090;
+      font-size: 0.85rem;
+      margin-bottom: 28px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #028090;
+    }
+
+    button.add-btn {
+      background: #028090;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    button.add-btn:hover { background: #01687a; }
+
+    #todo-list {
+      list-style: none;
+    }
+
+    #todo-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #f0f4f8;
+      font-size: 0.95rem;
+      color: #1a1a2e;
+    }
+
+    #todo-list li button {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.2s;
+    }
+
+    #todo-list li button:hover { background: #c0392b; }
+
+    .empty {
+      text-align: center;
+      color: #a0aec0;
+      padding: 20px 0;
+      font-style: italic;
+    }
+
+    .error {
+      background: #fff5f5;
+      color: #e74c3c;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #028090;
+      color: white;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 Todo List <span class="badge">K8s</span></h1>
+    <p class="subtitle">Projet Cruise — Node.js + MySQL sur Kubernetes</p>
+
+    <div id="error-msg" class="error" style="display:none;"></div>
+
+    <div class="input-row">
+      <input type="text" id="todo-input" placeholder="Ajouter une tâche..." />
+      <button class="add-btn" onclick="addTodo()">Ajouter</button>
+    </div>
+
+    <ul id="todo-list">
+      <li class="empty">Chargement...</li>
+    </ul>
+  </div>
+
+  <script>
+    // URL du backend — via variable d'env injectée ou valeur par défaut
+    const API_URL = window.BACKEND_URL || 'http://localhost:3001';
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 4000);
+    }
+
+    async function fetchTodos() {
+      try {
+        const res = await fetch(`${API_URL}/todos`);
+        const todos = await res.json();
+        renderTodos(todos);
+      } catch (e) {
+        showError('Impossible de contacter le backend.');
+        renderTodos([]);
+      }
+    }
+
+    function renderTodos(todos) {
+      const list = document.getElementById('todo-list');
+      if (!todos.length) {
+        list.innerHTML = '<li class="empty">Aucune tâche pour l\'instant.</li>';
+        return;
+      }
+      list.innerHTML = todos.map(t => `
+        <li>
+          <span>${escapeHtml(t.title)}</span>
+          <button onclick="deleteTodo(${t.id})">Supprimer</button>
+        </li>
+      `).join('');
+    }
+
+    async function addTodo() {
+      const input = document.getElementById('todo-input');
+      const title = input.value.trim();
+      if (!title) return;
+      try {
+        await fetch(`${API_URL}/todos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        input.value = '';
+        fetchTodos();
+      } catch (e) {
+        showError('Erreur lors de l\'ajout.');
+      }
+    }
+
+    async function deleteTodo(id) {
+      try {
+        await fetch(`${API_URL}/todos/${id}`, { method: 'DELETE' });
+        fetchTodos();
+      } catch (e) {
+        showError('Erreur lors de la suppression.');
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Appuyer sur Entrée pour ajouter
+    document.getElementById('todo-input').addEventListener('keypress', e => {
+      if (e.key === 'Enter') addTodo();
+    });
+
+    // Chargement initial
+    fetchTodos();
+  </script>
+</body>
+</html>
