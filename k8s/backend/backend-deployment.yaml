@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dev
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+      - name: registry-pull-secret
+      containers:
+      - name: backend
+        image: 192.168.56.25:30500/backend:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+
+        envFrom:
+        - configMapRef:
+            name: backend-config
