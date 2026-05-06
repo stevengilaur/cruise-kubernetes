@@ -27,14 +27,4 @@ spec:
       - name: frontend
         image: 192.168.56.25:30500/frontend:v2
         ports:
-        - containerPort: 8080
-        readinessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        livenessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 20
+        - containerPort: 80
