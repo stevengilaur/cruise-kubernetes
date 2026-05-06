@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb-cluster
+  namespace: dev
+  labels:
+    app: mariadb-cluster
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/part-of: cruise
+spec:
+  serviceName: mariadb-cluster
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mariadb-cluster
+  template:
+    metadata:
+      labels:
+        app: mariadb-cluster
+        app.kubernetes.io/name: mariadb
+        app.kubernetes.io/part-of: cruise
+    spec:
+      imagePullSecrets:
+        - name: registry-pull-secret
+      containers:
+        - name: mariadb
+          image: 192.168.56.25:30500/mariadb:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: MYSQL_USER
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: MYSQL_PASSWORD
+          volumeMounts:
+            - name: mariadb-data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: mariadb-data
+        labels:
+          app: mariadb-cluster
+          app.kubernetes.io/name: mariadb
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: manual-db
+        resources:
+          requests:
+            storage: 5Gi

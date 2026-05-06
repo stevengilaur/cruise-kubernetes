@@ -5,6 +5,10 @@ metadata:
   namespace: dev
   labels:
     app: backend
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: cruise
+  annotations:
+    cruise.etna/project: "isr-orc4"
 spec:
   replicas: 2
   selector:
@@ -14,6 +18,8 @@ spec:
     metadata:
       labels:
         app: backend
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: cruise
     spec:
       imagePullSecrets:
       - name: registry-pull-secret
@@ -23,7 +29,6 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
-
         envFrom:
         - configMapRef:
             name: backend-config

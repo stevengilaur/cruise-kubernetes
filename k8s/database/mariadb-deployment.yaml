@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: mariadb
   namespace: dev
+  labels:
+    app: mariadb
+    app.kubernetes.io/name: mariadb
+    app.kubernetes.io/part-of: cruise
 spec:
   replicas: 1
   selector:
@@ -12,12 +16,15 @@ spec:
     metadata:
       labels:
         app: mariadb
+        app.kubernetes.io/name: mariadb
+        app.kubernetes.io/part-of: cruise
     spec:
       imagePullSecrets:
       - name: registry-pull-secret
       containers:
       - name: mariadb
         image: 192.168.56.25:30500/mariadb:v1
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3306
         env:
@@ -41,3 +48,20 @@ spec:
             secretKeyRef:
               name: mariadb-secret
               key: MYSQL_PASSWORD
+        volumeMounts:
+        - name: mariadb-data
+          mountPath: /var/lib/mysql
+        readinessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 3306
+          initialDelaySeconds: 30
+          periodSeconds: 20
+      volumes:
+      - name: mariadb-data
+        persistentVolumeClaim:
+          claimName: mariadb-pvc

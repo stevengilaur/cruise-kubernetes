@@ -3,6 +3,12 @@ kind: Deployment
 metadata:
   name: frontend
   namespace: dev
+  labels:
+    app: frontend
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: cruise
+  annotations:
+    cruise.etna/project: "isr-orc4"
 spec:
   replicas: 2
   selector:
@@ -12,6 +18,8 @@ spec:
     metadata:
       labels:
         app: frontend
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: cruise
     spec:
       imagePullSecrets:
       - name: registry-pull-secret
@@ -20,3 +28,13 @@ spec:
         image: 192.168.56.25:30500/frontend:v2
         ports:
         - containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20

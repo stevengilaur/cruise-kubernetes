@@ -40,6 +40,7 @@ kubectl apply -f k8s/namespaces/dev-namespace.yaml
 kubectl apply -f k8s/namespaces/prod-namespace.yaml
 
 kubectl apply -f k8s/database/mariadb-secret.yaml
+kubectl apply -f k8s/database/mariadb-pvc.yaml
 kubectl apply -f k8s/database/mariadb-deployment.yaml
 kubectl apply -f k8s/database/mariadb-service.yaml
 
@@ -50,6 +51,31 @@ kubectl apply -f k8s/backend/backend-service.yaml
 kubectl apply -f k8s/frontend/frontend-deployment.yaml
 kubectl apply -f k8s/frontend/frontend-service.yaml
 ```
+
+## Cluster BDD (StatefulSet)
+
+```bash
+kubectl apply -f k8s/database-cluster/mariadb-pv.yaml
+kubectl apply -f k8s/database-cluster/mariadb-headless-service.yaml
+kubectl apply -f k8s/database-cluster/mariadb-statefulset.yaml
+kubectl get sts,pods,pvc -n dev
+```
+
+## Monitoring (Prometheus + Grafana)
+
+```bash
+kubectl apply -f k8s/monitoring/monitoring-namespace.yaml
+kubectl apply -f k8s/monitoring/prometheus-configmap.yaml
+kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
+kubectl apply -f k8s/monitoring/prometheus-service.yaml
+kubectl apply -f k8s/monitoring/grafana-secret.yaml
+kubectl apply -f k8s/monitoring/grafana-deployment.yaml
+kubectl apply -f k8s/monitoring/grafana-service.yaml
+```
+
+Acces:
+- Prometheus: `http://192.168.56.25:30090`
+- Grafana: `http://192.168.56.25:30300` (admin/admin123)
 
 ## Verifications rapides
 
