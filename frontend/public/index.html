@@ -148,8 +148,8 @@
   </div>
 
   <script>
-    // URL du backend — via variable d'env injectée ou valeur par défaut
-    const API_URL = window.BACKEND_URL || 'http://localhost:3001';
+    // Le frontend proxifie les appels API via /api → backend interne
+    const API_URL = '/api';
 
     function showError(msg) {
       const el = document.getElementById('error-msg');
