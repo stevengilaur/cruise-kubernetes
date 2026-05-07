@@ -1,0 +1,21 @@
+# Service — Base de données MySQL (accès interne uniquement)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-database-svc
+  namespace: prod
+  labels:
+    app: mysql
+    tier: data
+    env: prod
+    project: cruise
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+      protocol: TCP

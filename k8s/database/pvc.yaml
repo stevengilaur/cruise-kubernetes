@@ -1,0 +1,19 @@
+# PersistentVolumeClaim — Demande de stockage pour MySQL
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  namespace: prod
+  labels:
+    app: mysql
+    env: prod
+    project: cruise
+  annotations:
+    description: "Claim sur le volume persistant MySQL"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

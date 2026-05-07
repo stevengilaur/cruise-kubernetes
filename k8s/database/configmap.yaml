@@ -1,0 +1,15 @@
+# ConfigMap — Configuration de la base de données
+# Contient les variables non sensibles
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: prod
+  labels:
+    app: mysql
+    env: prod
+    project: cruise
+data:
+  DB_NAME: "tododb"
+  DB_PORT: "3306"
