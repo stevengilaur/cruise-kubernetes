@@ -3,6 +3,8 @@ Vagrant.configure("2") do |config|
   config.vm.box_check_update = false
   config.vm.boot_timeout = 600
 
+  config.ssh.insert_key = false
+
   machines = [
     { name: "k8s-master",  ip: "192.168.56.10", memory: 2048, cpus: 2 },
     { name: "k8s-worker1", ip: "192.168.56.11", memory: 2048, cpus: 2 },
@@ -26,6 +28,24 @@ Vagrant.configure("2") do |config|
         # Désactiver le service qui ralentit le boot SSH
         systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
         systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+
+        # Désactiver le swap
+        swapoff -a
+        sed -i '/ swap / s/^/#/' /etc/fstab
+
+        # Modules kernel requis par Kubernetes
+        modprobe overlay
+        modprobe br_netfilter
+        cat <<EOF > /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+        cat <<EOF > /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward                 = 1
+EOF
+        sysctl --system
 
         # Installer containerd
         apt-get update -y
