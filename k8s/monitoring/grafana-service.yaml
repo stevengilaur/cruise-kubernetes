@@ -1,0 +1,21 @@
+# Service — Grafana (NodePort pour accès externe)
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-svc
+  namespace: monitoring
+  labels:
+    app: grafana
+    env: prod
+    project: cruise
+spec:
+  type: NodePort
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30030
+      protocol: TCP

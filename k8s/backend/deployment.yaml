@@ -1,0 +1,88 @@
+# Deployment — Backend API Node.js/Express
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-backend
+  namespace: prod
+  labels:
+    app: backend
+    tier: backend
+    env: prod
+    project: cruise
+  annotations:
+    description: "Deployment backend API REST Node.js pour l'application Todo List"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: backend
+        env: prod
+        project: cruise
+    spec:
+      imagePullSecrets:
+        - name: regcred
+
+      containers:
+        - name: backend
+          image: 192.168.56.10:5000/todo-backend:v1
+          ports:
+            - containerPort: 3001
+              protocol: TCP
+
+          env:
+            - name: PORT
+              value: "3001"
+            - name: DB_HOST
+              value: "todo-database-svc"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: mysql-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_PASSWORD
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3

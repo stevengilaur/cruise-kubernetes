@@ -1,0 +1,20 @@
+# PersistentVolume — Stockage pour la base de données MySQL
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  labels:
+    app: mysql
+    env: prod
+    project: cruise
+  annotations:
+    description: "Volume persistant pour les données MariaDB"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /data/mysql

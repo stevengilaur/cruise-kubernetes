@@ -1,0 +1,83 @@
+# Pod — Base de données MySQL (MariaDB sur Alpine)
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: todo-database
+  namespace: prod
+  labels:
+    app: mysql
+    tier: data
+    env: prod
+    project: cruise
+  annotations:
+    description: "Pod base de données MariaDB pour l'application Todo List"
+spec:
+  # Utiliser le secret pour puller l'image depuis la registry privée
+  imagePullSecrets:
+    - name: regcred
+
+  containers:
+    - name: mysql
+      image: 192.168.56.10:5000/todo-database:v1
+      ports:
+        - containerPort: 3306
+          protocol: TCP
+
+      # Variables d'environnement depuis ConfigMap et Secret
+      env:
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: mysql-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: DB_PASSWORD
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+
+      # Limites de ressources
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "250m"
+        limits:
+          memory: "512Mi"
+          cpu: "500m"
+
+      # Sonde de disponibilité (readiness) — le pod reçoit du trafic seulement si MySQL répond
+      readinessProbe:
+        exec:
+          command:
+            - mysqladmin
+            - ping
+            - -u
+            - root
+            - -prootpassword
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        failureThreshold: 3
+
+      # Sonde d'activité (liveness) — Kubernetes redémarre le pod si MySQL ne répond plus
+      livenessProbe:
+        exec:
+          command:
+            - mysqladmin
+            - ping
+            - -u
+            - root
+            - -prootpassword
+        initialDelaySeconds: 40
+        periodSeconds: 20
+        failureThreshold: 3

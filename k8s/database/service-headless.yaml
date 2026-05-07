@@ -1,0 +1,22 @@
+# Service Headless — nécessaire pour le StatefulSet
+# Permet à chaque pod d'avoir un nom DNS stable :
+# todo-database-0.todo-database-headless.prod.svc.cluster.local
+# todo-database-1.todo-database-headless.prod.svc.cluster.local
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-database-headless
+  namespace: prod
+  labels:
+    app: mysql
+    env: prod
+    project: cruise
+spec:
+  clusterIP: None
+  selector:
+    app: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306

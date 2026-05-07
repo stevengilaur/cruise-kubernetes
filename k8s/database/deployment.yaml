@@ -1,0 +1,102 @@
+# Deployment — Base de données MySQL (MariaDB)
+# Note : pour la prod, préférer un StatefulSet (Étape IX)
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-database
+  namespace: prod
+  labels:
+    app: mysql
+    tier: data
+    env: prod
+    project: cruise
+  annotations:
+    description: "Deployment base de données MariaDB pour l'application Todo List"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+        tier: data
+        env: prod
+        project: cruise
+    spec:
+      imagePullSecrets:
+        - name: regcred
+
+      containers:
+        - name: mysql
+          image: 192.168.56.10:5000/todo-database:v2
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+
+          env:
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: mysql-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: DB_PASSWORD
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          readinessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -u
+                - root
+                - -prootpassword
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -u
+                - root
+                - -prootpassword
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: mysql-pvc

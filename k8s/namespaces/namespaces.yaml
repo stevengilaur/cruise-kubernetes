@@ -1,0 +1,26 @@
+# Namespaces du projet Cruise
+# Permet d'isoler les environnements entre eux
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod
+  labels:
+    env: production
+    project: cruise
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+  labels:
+    env: development
+    project: cruise
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    env: monitoring
+    project: cruise
