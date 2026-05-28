@@ -1,0 +1,277 @@
+---
+- name: Ensure cluster is ready
+  shell: |
+    kubectl get nodes | grep -c " Ready "
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: ready_nodes
+  until: ready_nodes.stdout|int >= 3
+  retries: 30
+  delay: 5
+
+- name: Create namespaces
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/namespaces/dev-namespace.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/namespaces/prod-namespace.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: namespace_result
+  retries: 3
+  delay: 5
+
+- name: Create registry namespace
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../registry/registry-namespace.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: registry_ns_result
+  retries: 3
+  delay: 5
+
+- name: Create registry PV and PVC
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../registry/registry-pv.yaml
+    kubectl apply -f {{ playbook_dir }}/../registry/registry-pvc.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: registry_storage_result
+  retries: 3
+  delay: 5
+
+- name: Deploy private Docker registry
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../registry/registry.yaml
+    kubectl apply -f {{ playbook_dir }}/../registry/registry-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: registry_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for registry to be ready
+  shell: |
+    kubectl get pods -n registry -l app=registry -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q "Running"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: registry_ready
+  until: registry_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Create registry secrets in dev namespace
+  shell: |
+    kubectl create secret docker-registry regcred \
+      --docker-server=192.168.56.25:30500 \
+      --docker-username=cruise \
+      --docker-password='ChangeMeNow!' \
+      -n dev \
+      --dry-run=client -o yaml | kubectl apply -f -
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: secret_result
+  retries: 3
+  delay: 5
+
+- name: Create registry secrets in prod namespace
+  shell: |
+    kubectl create secret docker-registry regcred \
+      --docker-server=192.168.56.25:30500 \
+      --docker-username=cruise \
+      --docker-password='ChangeMeNow!' \
+      -n prod \
+      --dry-run=client -o yaml | kubectl apply -f -
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: secret_prod_result
+  retries: 3
+  delay: 5
+
+- name: Deploy MariaDB secret
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/database/mariadb-secret.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: db_secret_result
+  retries: 3
+  delay: 5
+
+- name: Deploy MariaDB PVC
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/database/mariadb-pvc.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: db_pvc_result
+  retries: 3
+  delay: 5
+
+- name: Deploy MariaDB
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/database/mariadb-deployment.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/database/mariadb-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: db_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for MariaDB to be ready
+  shell: |
+    kubectl get deployment mariadb -n dev -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -qE "^[1-9]"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: db_ready
+  until: db_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Deploy backend ConfigMap
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/backend/backend-configmap.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: backend_cm_result
+  retries: 3
+  delay: 5
+
+- name: Deploy backend
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/backend/backend-deployment.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/backend/backend-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: backend_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for backend to be ready
+  shell: |
+    kubectl get deployment backend -n dev -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -qE "^[1-9]"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: backend_ready
+  until: backend_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Deploy frontend
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/frontend/frontend-deployment.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/frontend/frontend-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: frontend_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for frontend to be ready
+  shell: |
+    kubectl get deployment frontend -n dev -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -qE "^[1-9]"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: frontend_ready
+  until: frontend_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Deploy database cluster (StatefulSet)
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/database-cluster/mariadb-pv.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/database-cluster/mariadb-headless-service.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/database-cluster/mariadb-statefulset.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: db_cluster_result
+  retries: 3
+  delay: 5
+
+- name: Deploy monitoring namespace
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/monitoring-namespace.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: monitoring_ns_result
+  retries: 3
+  delay: 5
+
+- name: Deploy Prometheus ConfigMap
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/prometheus-configmap.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: prometheus_cm_result
+  retries: 3
+  delay: 5
+
+- name: Deploy Prometheus
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/prometheus-deployment.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/prometheus-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: prometheus_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for Prometheus to be ready
+  shell: |
+    kubectl get deployment prometheus -n monitoring -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -qE "^[1-9]"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: prometheus_ready
+  until: prometheus_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Deploy Grafana secret
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/grafana-secret.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: grafana_secret_result
+  retries: 3
+  delay: 5
+
+- name: Deploy Grafana
+  shell: |
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/grafana-deployment.yaml
+    kubectl apply -f {{ playbook_dir }}/../k8s/monitoring/grafana-service.yaml
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: grafana_deploy_result
+  retries: 3
+  delay: 5
+
+- name: Wait for Grafana to be ready
+  shell: |
+    kubectl get deployment grafana -n monitoring -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -qE "^[1-9]"
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: grafana_ready
+  until: grafana_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Verify cluster deployment
+  shell: |
+    echo "=== Cluster Nodes ==="
+    kubectl get nodes
+    echo ""
+    echo "=== Namespaces ==="
+    kubectl get ns
+    echo ""
+    echo "=== Dev Pods ==="
+    kubectl get pods -n dev -o wide
+    echo ""
+    echo "=== Monitoring Pods ==="
+    kubectl get pods -n monitoring -o wide
+    echo ""
+    echo "=== Services ==="
+    kubectl get svc -n dev
+    kubectl get svc -n monitoring
+  environment:
+    KUBECONFIG: /root/.kube/config
+  register: cluster_status
+
+- name: Display cluster status
+  debug:
+    msg: "{{ cluster_status.stdout_lines }}"

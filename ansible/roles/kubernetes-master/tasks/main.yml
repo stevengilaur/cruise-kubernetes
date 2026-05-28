@@ -1,0 +1,98 @@
+---
+- name: Initialize Kubernetes cluster on master
+  shell: |
+    kubeadm init \
+      --apiserver-advertise-address=192.168.56.25 \
+      --pod-network-cidr=10.244.0.0/16 \
+      --service-cidr=10.96.0.0/12 \
+      --token={{ kubeadm_token }} \
+      --token-ttl=0 \
+      2>&1 | tee /tmp/kubeadm_init.log
+  args:
+    creates: /etc/kubernetes/admin.conf
+  register: kubeadm_init_result
+  retries: 3
+  delay: 5
+
+- name: Create .kube directory for vagrant user
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: 0755
+
+- name: Copy admin.conf for vagrant user
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+    owner: vagrant
+    group: vagrant
+    mode: 0644
+    remote_src: yes
+
+- name: Create .kube directory for root
+  file:
+    path: /root/.kube
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Copy admin.conf for root user
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    owner: root
+    group: root
+    mode: 0644
+    remote_src: yes
+
+- name: Wait for API server to be ready
+  shell: kubectl get nodes
+  environment:
+    KUBECONFIG: /home/vagrant/.kube/config
+  become: yes
+  become_user: vagrant
+  register: api_ready
+  until: api_ready.rc == 0
+  retries: 30
+  delay: 5
+
+- name: Deploy Flannel CNI plugin
+  shell: |
+    kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+  environment:
+    KUBECONFIG: /home/vagrant/.kube/config
+  become: yes
+  become_user: vagrant
+  register: flannel_result
+  retries: 3
+  delay: 5
+
+- name: Wait for Flannel pods to be ready
+  shell: |
+    kubectl wait --for=condition=ready pod -l app=flannel -n kube-flannel --timeout=300s
+  environment:
+    KUBECONFIG: /home/vagrant/.kube/config
+  become: yes
+  become_user: vagrant
+  retries: 3
+  delay: 10
+
+- name: Get join token and certificate hash
+  shell: |
+    TOKEN=$(kubeadm token list | awk 'NR==2 {print $1}')
+    HASH=$(openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //')
+    echo "$TOKEN:$HASH"
+  register: join_command_parts
+
+- name: Store join command for workers
+  set_fact:
+    worker_join_command: "kubeadm join 192.168.56.25:6443 --token {{ join_command_parts.stdout.split(':')[0] }} --discovery-token-ca-cert-hash sha256:{{ join_command_parts.stdout.split(':')[1] }}"
+  delegate_to: localhost
+  delegate_facts: yes
+
+- name: Display join command
+  debug:
+    msg: "{{ worker_join_command }}"

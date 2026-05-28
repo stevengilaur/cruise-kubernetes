@@ -1,0 +1,40 @@
+---
+- name: Get master facts for join token
+  setup:
+  delegate_to: "{{ groups['masters'][0] }}"
+  delegate_facts: no
+
+- name: Get join command from master
+  shell: |
+    TOKEN=$(kubeadm token list | awk 'NR==2 {print $1}')
+    if [ -z "$TOKEN" ]; then
+      kubeadm token create
+      TOKEN=$(kubeadm token list | awk 'NR==2 {print $1}')
+    fi
+    HASH=$(openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //')
+    echo "kubeadm join 192.168.56.25:6443 --token $TOKEN --discovery-token-ca-cert-hash sha256:$HASH"
+  delegate_to: "{{ groups['masters'][0] }}"
+  register: join_command
+  become: yes
+
+- name: Join worker to Kubernetes cluster
+  shell: "{{ join_command.stdout }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  register: worker_join
+  retries: 3
+  delay: 5
+  become: yes
+
+- name: Wait for worker to be ready
+  shell: |
+    kubectl get node {{ inventory_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  environment:
+    KUBECONFIG: /home/vagrant/.kube/config
+  delegate_to: "{{ groups['masters'][0] }}"
+  become: yes
+  become_user: vagrant
+  register: node_status
+  until: node_status.stdout == "True"
+  retries: 30
+  delay: 5

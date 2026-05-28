@@ -1,8 +1,13 @@
 /cruise-k8s/k8s/frontend$ curl http://192.168.56.25:30009
 
+ssh -i ~/.ssh/vagrant_key vagrant@192.168.56.27
 ssh -i ~/.ssh/worker2_key vagrant@worker2
 
 ssh -i ~/.ssh/worker1_key vagrant@worker1
+ssh -i ~/.ssh/vagrant_key vagrant@192.168.56.26
 
 kubectl get pods -n registry
 kubectl get svc -n registry
+
+backend : http://192.168.56.25:30008/
+Frontend : http://192.168.56.25:30009

@@ -23,8 +23,8 @@
 - Montrer le cluster DB StatefulSet:
   - `kubectl get sts -n dev`
 - Montrer le monitoring:
-  - Prometheus: `http://<MASTER_IP>:30090`
-  - Grafana: `http://<MASTER_IP>:30300`
+  - Prometheus: `http://<MASTER_IP>:30090` 'http://192.168.56.25:30090'
+  - Grafana: `http://<MASTER_IP>:30300` 'http://192.168.56.25:30300 (admin/admin123)"
 
 ## 3) Scenario de resilience (4 min)
 

@@ -1,0 +1,71 @@
+---
+- name: Deploy Kubernetes Cluster - BONUS Automation
+  hosts: all_nodes
+  become: yes
+  vars:
+    kubeadm_token: "{{ lookup('password', '/tmp/kubeadm_token chars=ascii_lowercase,digits length=32') }}"
+
+  tasks:
+    - name: Display deployment info
+      debug:
+        msg: "Starting Kubernetes cluster deployment via Ansible"
+
+- name: Prepare all nodes for Kubernetes
+  hosts: all_nodes
+  become: yes
+  roles:
+    - kubernetes-prepare
+
+- name: Initialize Kubernetes master
+  hosts: masters
+  become: yes
+  roles:
+    - kubernetes-master
+
+- name: Join workers to cluster
+  hosts: workers
+  become: yes
+  roles:
+    - kubernetes-worker
+
+- name: Deploy Kubernetes applications
+  hosts: masters
+  become: yes
+  roles:
+    - deploy-kubernetes
+
+- name: Post-deployment summary
+  hosts: masters
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Final status check
+      shell: |
+        echo "================================================"
+        echo "Kubernetes Cluster Deployment Complete!"
+        echo "================================================"
+        echo ""
+        echo "Cluster Info:"
+        kubectl get nodes --no-headers
+        echo ""
+        echo "All Nodes Status:"
+        kubectl get nodes
+        echo ""
+        echo "Available Services:"
+        echo "- Frontend:   http://192.168.56.25:30009"
+        echo "- Backend:    http://192.168.56.25:30008"
+        echo "- Grafana:    http://192.168.56.25:30300 (admin/admin123)"
+        echo "- Prometheus: http://192.168.56.25:30090"
+        echo "- Registry:   https://192.168.56.25:30500"
+        echo ""
+        echo "Connection commands:"
+        echo "$ export KUBECONFIG=/root/.kube/config"
+        echo "$ kubectl get pods -n dev"
+        echo "================================================"
+      environment:
+        KUBECONFIG: /root/.kube/config
+      register: final_summary
+
+    - name: Display final summary
+      debug:
+        msg: "{{ final_summary.stdout_lines }}"
